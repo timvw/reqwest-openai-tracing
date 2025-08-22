@@ -16,7 +16,7 @@ use std::time::{Duration, SystemTime};
 use tokio::time::sleep;
 use tracing::info;
 
-fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
+fn setup_tracing(service_name: &str) -> Result<SdkTracerProvider, Box<dyn Error>> {
     // Use the helper functions to build endpoint and headers from environment variables
     let endpoint = build_langfuse_otlp_endpoint_from_env()?;
     let auth_header = build_langfuse_auth_header_from_env()?;
@@ -34,7 +34,7 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
         .build()?;
 
     let tracer_provider = SdkTracerProvider::builder()
-        .with_batch_exporter(exporter)
+        .with_simple_exporter(exporter)
         .with_resource(
             opentelemetry_sdk::Resource::builder()
                 .with_attribute(opentelemetry::KeyValue::new(
@@ -45,7 +45,7 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
         )
         .build();
 
-    global::set_tracer_provider(tracer_provider);
+    global::set_tracer_provider(tracer_provider.clone());
 
     // Setup tracing subscriber
     tracing_subscriber::fmt()
@@ -59,7 +59,7 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
         "OpenTelemetry initialized with Langfuse backend at: {}",
         endpoint
     );
-    Ok(())
+    Ok(tracer_provider)
 }
 
 // Note: We create OpenTelemetry spans manually here instead of using the tracing
@@ -209,7 +209,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // - LANGFUSE_HOST: The base URL of your Langfuse instance (e.g., https://cloud.langfuse.com)
     // - LANGFUSE_PUBLIC_KEY: Your Langfuse public key
     // - LANGFUSE_SECRET_KEY: Your Langfuse secret key
-    setup_tracing("reqwest-openai-example")?;
+    let tracer_provider = setup_tracing("reqwest-openai-example")?;
 
     // Create reqwest client with tracing middleware
     let reqwest_client = reqwest::Client::new();
@@ -243,13 +243,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Exporting traces to Langfuse...");
 
-    // Give time for traces to flush
+    // Force flush all pending spans
+    if let Err(e) = tracer_provider.force_flush() {
+        eprintln!("Error flushing spans: {:?}", e);
+    }
+
+    // Give a bit more time for the export to complete
     sleep(Duration::from_secs(2)).await;
 
-    // Shutdown tracing
-    // Shutdown is handled automatically when the provider is dropped
-    sleep(Duration::from_secs(1)).await;
-
+    // Shutdown the tracer provider
+    drop(tracer_provider);
+    
     info!("Traces have been sent to Langfuse. Check your dashboard for details.");
 
     Ok(())
