@@ -71,10 +71,7 @@ impl Middleware for OpenAITracingMiddleware {
 
             // Build attributes using the builder pattern
             let builder = TraceAttributesBuilder::new().with_name(trace_name.clone());
-
-            // Add service name
             let mut root_attributes = builder.build();
-            root_attributes.push(KeyValue::new("service.name", "demo-llm-rs"));
 
             // Apply any programmatically-set context attributes to the root span
             let context_attrs = crate::context::GLOBAL_CONTEXT.get_attributes();
