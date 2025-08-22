@@ -26,10 +26,12 @@ fn setup_tracing(service_name: &str) -> Result<SdkTracerProvider, Box<dyn Error>
     headers.insert("Authorization".to_string(), auth_header);
 
     // Setup OpenTelemetry with OTLP exporter for Langfuse
+    // Note: The endpoint needs /v1/traces appended for OTLP HTTP
+    let otlp_endpoint = format!("{}/v1/traces", endpoint);
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
         .with_http_client(reqwest::Client::new())
-        .with_endpoint(endpoint.clone())
+        .with_endpoint(otlp_endpoint)
         .with_headers(headers)
         .build()?;
 
@@ -68,14 +70,7 @@ fn setup_tracing(service_name: &str) -> Result<SdkTracerProvider, Box<dyn Error>
 // while maintaining the proper parent-child relationship with the middleware-generated spans.
 async fn run_conversation(client: &Client<AzureConfig>) -> Result<(), Box<dyn Error>> {
     // Generate session ID from current timestamp (format: YYYYMMDDHHMMSS)
-    let timestamp = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)?
-        .as_secs();
-
-    // Convert Unix timestamp to formatted string
-    let datetime = chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp as i64, 0)
-        .ok_or("Failed to create datetime")?;
-    let session_id = datetime.format("%Y%m%d%H%M%S").to_string();
+    let session_id = chrono::Local::now().format("%Y%m%d%H%M%S").to_string();
 
     info!("Starting conversation with session_id: {}", session_id);
 
