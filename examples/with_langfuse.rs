@@ -3,7 +3,7 @@
 use async_openai::{config::AzureConfig, Client};
 use dotenv::dotenv;
 use opentelemetry::global;
-use opentelemetry::trace::{Span, TraceContextExt, Tracer};
+use opentelemetry::trace::{Tracer, TraceContextExt};
 use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::trace::TracerProvider;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -74,26 +74,21 @@ async fn run_conversation(client: &Client<AzureConfig>) -> Result<(), Box<dyn Er
     use reqwest_openai_tracing::langfuse_context;
     langfuse_context::set_session_id(&session_id);
 
-    // Create a span for the entire conversation
+    // Create an OpenTelemetry span
     let tracer = global::tracer("conversation-tracer");
-    let mut span = tracer.start("run_conversation");
+    let span = tracer
+        .span_builder("run_conversation")
+        .with_attributes(vec![
+            opentelemetry::KeyValue::new("conversation.session_id", session_id.clone()),
+            opentelemetry::KeyValue::new("conversation.type", "translation_request"),
+            opentelemetry::KeyValue::new("conversation.turns", 2i64),
+            opentelemetry::KeyValue::new("conversation.topic", "France capital"),
+        ])
+        .start(&tracer);
 
-    // Add attributes to the span
-    span.set_attribute(opentelemetry::KeyValue::new(
-        "conversation.session_id",
-        session_id.clone(),
-    ));
-    span.set_attribute(opentelemetry::KeyValue::new(
-        "conversation.type",
-        "translation_request",
-    ));
-    span.set_attribute(opentelemetry::KeyValue::new("conversation.turns", 2i64));
-    span.set_attribute(opentelemetry::KeyValue::new(
-        "conversation.topic",
-        "France capital",
-    ));
-
-    let _guard = opentelemetry::Context::current_with_span(span);
+    // Set this span as the active span in the context
+    let cx = opentelemetry::Context::current_with_span(span);
+    let _guard = cx.attach();
 
     // Make the first request
     let request = async_openai::types::CreateChatCompletionRequestArgs::default()
