@@ -35,7 +35,7 @@ jobs:
         run: cargo build --all-targets
 
       - name: Test
-        run: cargo test --all-features
+        run: cargo test --all-features -- --test-threads=1
 
       - name: Check formatting
         run: cargo fmt -- --check
@@ -69,7 +69,7 @@ jobs:
           LLVM_PROFILE_FILE: "target/coverage/prof/cargo-test-%p-%m.profraw"
 
       - name: Test
-        run: cargo test --all-features
+        run: cargo test --all-features -- --test-threads=1
         env:
           RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "target/coverage/prof/cargo-test-%p-%m.profraw"
