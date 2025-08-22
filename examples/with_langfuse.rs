@@ -4,7 +4,7 @@ use async_openai::{config::AzureConfig, Client};
 use dotenv::dotenv;
 use opentelemetry::global;
 use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
-use opentelemetry_sdk::trace::TracerProvider;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_openai_tracing::{
     build_langfuse_auth_header_from_env, build_langfuse_otlp_endpoint_from_env,
@@ -28,15 +28,21 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
     // Setup OpenTelemetry with OTLP exporter for Langfuse
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
+        .with_http_client(reqwest::Client::new())
         .with_endpoint(endpoint.clone())
         .with_headers(headers)
         .build()?;
 
-    let tracer_provider = TracerProvider::builder()
-        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
-        .with_resource(opentelemetry_sdk::Resource::new(vec![
-            opentelemetry::KeyValue::new("service.name", service_name.to_string()),
-        ]))
+    let tracer_provider = SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .with_resource(
+            opentelemetry_sdk::Resource::builder()
+                .with_attribute(opentelemetry::KeyValue::new(
+                    "service.name",
+                    service_name.to_string(),
+                ))
+                .build(),
+        )
         .build();
 
     global::set_tracer_provider(tracer_provider);
@@ -241,7 +247,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     sleep(Duration::from_secs(2)).await;
 
     // Shutdown tracing
-    global::shutdown_tracer_provider();
+    // Shutdown is handled automatically when the provider is dropped
     sleep(Duration::from_secs(1)).await;
 
     info!("Traces have been sent to Langfuse. Check your dashboard for details.");
