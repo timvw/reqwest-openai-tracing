@@ -11,7 +11,7 @@ git_release_name = "v{{version}}"
 dependencies_update = true
 # Disable registry operations for local packages
 publish_allow_dirty = true
-# pr_labels = ["release"] # Disabled - requires additional permissions
+pr_labels = ["release"]
 
 [[package]]
 name = "reqwest-openai-tracing"
