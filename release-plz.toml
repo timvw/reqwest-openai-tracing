@@ -20,3 +20,6 @@ changelog_path = "CHANGELOG.md"
 # Set to false until async-openai is published to crates.io
 # The git dependency prevents publishing
 publish = false
+# Tell release-plz this package is not on crates.io
+# and should use git tags for version detection
+release = true

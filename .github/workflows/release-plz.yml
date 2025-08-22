@@ -23,6 +23,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Run release-plz
         uses: MarcoIeni/release-plz-action@v0.5
+        with:
+          # Tell release-plz to use git history instead of registry
+          command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No CARGO_REGISTRY_TOKEN needed since we're not publishing to crates.io
