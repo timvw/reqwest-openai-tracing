@@ -80,46 +80,88 @@ langfuse_context::GLOBAL_CONTEXT.set_metadata(serde_json::json!({
 
 ## Langfuse Integration
 
-To send traces to Langfuse, configure OpenTelemetry with the OTLP exporter:
+This library provides helper functions to simplify Langfuse integration:
 
 ```rust
-use opentelemetry_otlp::WithExportConfig;
+use reqwest_openai_tracing::{
+    build_langfuse_auth_header_from_env,
+    build_langfuse_otlp_endpoint_from_env,
+};
+use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::trace::TracerProvider;
+use std::collections::HashMap;
+
+// Build endpoint and auth headers from environment variables
+let endpoint = build_langfuse_otlp_endpoint_from_env()?;
+let auth_header = build_langfuse_auth_header_from_env()?;
+
+// Create headers HashMap for OpenTelemetry
+let mut headers = HashMap::new();
+headers.insert("Authorization".to_string(), auth_header);
+
+// Setup OpenTelemetry with Langfuse
+let exporter = opentelemetry_otlp::SpanExporter::builder()
+    .with_http()
+    .with_endpoint(endpoint)
+    .with_headers(headers)
+    .build()?;
 
 let tracer_provider = TracerProvider::builder()
-    .with_batch_exporter(
-        opentelemetry_otlp::new_exporter()
-            .http()
-            .with_endpoint("https://cloud.langfuse.com/api/public/otel")
-            .with_headers(/* your auth headers */)
-            .build()?,
-        opentelemetry_sdk::runtime::Tokio,
-    )
+    .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+    .with_resource(opentelemetry_sdk::Resource::new(vec![
+        opentelemetry::KeyValue::new("service.name", "your-service-name"),
+    ]))
     .build();
 ```
+
+### Helper Functions
+
+The library provides convenience functions for Langfuse configuration:
+
+- `build_langfuse_auth_header(public_key, secret_key)` - Creates the authentication header
+- `build_langfuse_auth_header_from_env()` - Reads keys from `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`
+- `build_otlp_endpoint(base_url)` - Constructs the OTLP endpoint URL
+- `build_langfuse_otlp_endpoint_from_env()` - Reads from `LANGFUSE_HOST`
 
 ## Environment Variables
 
 When using with Langfuse, set these environment variables:
 
 ```bash
-# Langfuse configuration
+# Required for Langfuse integration
 LANGFUSE_SECRET_KEY=sk-lf-...
 LANGFUSE_PUBLIC_KEY=pk-lf-...
-LANGFUSE_HOST=https://cloud.langfuse.com
+LANGFUSE_HOST=https://cloud.langfuse.com  # or your self-hosted instance
 
-# OpenTelemetry configuration for Langfuse
-OTEL_EXPORTER_OTLP_ENDPOINT=https://cloud.langfuse.com/api/public/otel
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64_encoded_keys>
+# Optional: Azure OpenAI configuration
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com
+AZURE_OPENAI_API_KEY=your-api-key
+AZURE_OPENAI_DEPLOYMENT=gpt-4  # or your deployment name
 ```
+
+The library's helper functions will automatically construct the OTLP endpoint and authentication headers from the Langfuse environment variables.
 
 ## Examples
 
-Check out the [examples](examples/) directory for more detailed usage:
+Check out the [examples](examples/) directory for detailed usage:
 
-- [`basic.rs`](examples/basic.rs) - Simple usage without OpenTelemetry setup
-- [`with_langfuse.rs`](examples/with_langfuse.rs) - Complete Langfuse integration
-- [`context.rs`](examples/context.rs) - Using context attributes
+- [`basic.rs`](examples/basic.rs) - Simple usage with minimal setup
+- [`with_langfuse.rs`](examples/with_langfuse.rs) - Complete Langfuse integration with OpenTelemetry
+- [`context.rs`](examples/context.rs) - Advanced usage with context attributes (session_id, user_id, tags)
+
+To run the Langfuse example:
+
+```bash
+# Set your environment variables
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+export LANGFUSE_HOST=https://cloud.langfuse.com
+export AZURE_OPENAI_ENDPOINT=...
+export AZURE_OPENAI_API_KEY=...
+
+# Run the example
+cargo run --example with_langfuse
+```
 
 ## How It Works
 
@@ -130,6 +172,8 @@ The middleware intercepts HTTP requests to OpenAI endpoints and:
 3. Extracts and records token usage, model information, and other metadata
 4. Applies any context attributes (session_id, user_id, tags) to the spans
 5. Forwards the spans to your configured OpenTelemetry backend
+
+**Note:** The `service.name` attribute should be set at the TracerProvider level (as shown in the Langfuse integration example), not at the span level. This follows OpenTelemetry best practices.
 
 ## Supported Operations
 

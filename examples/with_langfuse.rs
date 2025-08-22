@@ -89,6 +89,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create client with our middleware
     let client = Client::build(http_client, config, Default::default());
 
+    // Optional: Set context attributes for better organization in Langfuse
+    use reqwest_openai_tracing::langfuse_context;
+    langfuse_context::set_session_id("example-session-123");
+    langfuse_context::set_user_id("example-user-456");
+    langfuse_context::add_tags(vec!["example".to_string(), "langfuse".to_string()]);
+
     // Make a request - it will be traced and sent to Langfuse
     let request = async_openai::types::CreateChatCompletionRequestArgs::default()
         .messages(vec![
