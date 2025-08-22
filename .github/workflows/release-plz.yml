@@ -39,7 +39,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       
       - name: Install release-plz
-        run: cargo install release-plz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: release-plz
       
       - name: Run release-plz
         run: |
