@@ -61,7 +61,3 @@ path = "examples/with_langfuse.rs"
 [[example]]
 name = "context"
 path = "examples/context.rs"
-
-[[example]]
-name = "langfuse_auth"
-path = "examples/langfuse_auth.rs"
