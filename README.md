@@ -2,9 +2,8 @@
 
 OpenTelemetry tracing middleware for OpenAI API calls made with reqwest.
 
-[![Crates.io](https://img.shields.io/crates/v/reqwest-openai-tracing.svg)](https://crates.io/crates/reqwest-openai-tracing)
-[![Documentation](https://docs.rs/reqwest-openai-tracing/badge.svg)](https://docs.rs/reqwest-openai-tracing)
-[![License](https://img.shields.io/crates/l/reqwest-openai-tracing.svg)](https://github.com/timvw/reqwest-openai-tracing#license)
+[![GitHub](https://img.shields.io/github/v/tag/timvw/reqwest-openai-tracing?label=version)](https://github.com/timvw/reqwest-openai-tracing/releases)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](https://github.com/timvw/reqwest-openai-tracing#license)
 
 ## Features
 
