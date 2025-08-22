@@ -7,31 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.0](https://github.com/timvw/reqwest-openai-tracing/releases/tag/v0.0.0) - 2025-08-22
+## [0.1.0](https://github.com/timvw/reqwest-openai-tracing/releases/tag/v0.1.0) - 2025-08-22
 
 ### Added
 
-- enforce linear history and document squash merge settings
-- add version-controlled branch protection configurations
-- initial implementation of reqwest-openai-tracing library
-
-### Fixed
-
-- remove invalid registry field from release-plz config
-- configure release-plz to work without crates.io registry
-- disable crates.io publishing until async-openai dependency is resolved
-- remove invalid version_commit_message field from release-plz config
-- remove hardcoded service.name from middleware
-
-### Other
-
-- reset version to 0.0.0 after removing premature release
-- remove manual configuration files in favor of CLI setup
-- simplify branch protection to use only GitHub Rulesets
-- remove GITHUB_SECRETS_SETUP.md documentation
-- add GitHub workflows for automated testing and releases
-- add OpenTelemetry GenAI semantic conventions to README
-- improve README with langfuse integration details
-- remove langfuse_auth example
-- simplify langfuse authentication API
-- add MIT and Apache 2.0 licenses
+- OpenTelemetry tracing middleware for OpenAI API calls
+- Support for chat completions, embeddings, image generation, and audio operations
+- Automatic span creation following OpenTelemetry GenAI semantic conventions
+- Token usage tracking in span attributes
+- Langfuse integration via OpenTelemetry OTLP endpoint
+- Context attributes support (session_id, user_id, tags, metadata)
+- Helper functions for Langfuse authentication and configuration
+- Compatibility with async-openai library via HttpClient trait
+- Support for both OpenAI and Azure OpenAI endpoints
+- Comprehensive examples for basic usage, Langfuse integration, and context attributes
+- GitHub Actions workflows for testing and releases
+- MIT and Apache 2.0 dual licensing

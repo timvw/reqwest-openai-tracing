@@ -1,6 +1,6 @@
 [package]
 name = "reqwest-openai-tracing"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 authors = ["Tim Van Wassenhove <tim@timvw.be>"]
 description = "OpenTelemetry tracing middleware for OpenAI API calls with reqwest"
