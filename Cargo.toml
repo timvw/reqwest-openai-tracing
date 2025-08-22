@@ -43,12 +43,12 @@ base64 = "0.22.1"
 [dev-dependencies]
 # For examples and tests
 dotenv = "0.15"
+chrono = "0.4"
 tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "time"] }
 opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "trace"] }
 opentelemetry-otlp = { version = "0.27", features = ["tokio", "http-proto", "reqwest-client"] }
 tracing = "0.1"
-tracing-opentelemetry = "0.27"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "registry"] }
 
 [[example]]
 name = "basic"

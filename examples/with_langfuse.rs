@@ -12,7 +12,7 @@ use reqwest_openai_tracing::{
 };
 use std::collections::HashMap;
 use std::error::Error;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use tokio::time::sleep;
 use tracing::info;
 
@@ -56,6 +56,143 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// Note: We create OpenTelemetry spans manually here instead of using the tracing
+// #[instrument] macro because of version compatibility issues between tracing-opentelemetry
+// and our OpenTelemetry dependencies. This approach gives us full control over span creation
+// while maintaining the proper parent-child relationship with the middleware-generated spans.
+async fn run_conversation(client: &Client<AzureConfig>) -> Result<(), Box<dyn Error>> {
+    // Generate session ID from current timestamp (format: YYYYMMDDHHMMSS)
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)?
+        .as_secs();
+
+    // Convert Unix timestamp to formatted string
+    let datetime = chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp as i64, 0)
+        .ok_or("Failed to create datetime")?;
+    let session_id = datetime.format("%Y%m%d%H%M%S").to_string();
+
+    info!("Starting conversation with session_id: {}", session_id);
+
+    // Set the session ID in Langfuse context
+    use reqwest_openai_tracing::langfuse_context;
+    langfuse_context::set_session_id(&session_id);
+
+    // Create an OpenTelemetry span using the macro-style approach
+    use opentelemetry::trace::{TraceContextExt, Tracer};
+    let tracer = global::tracer("conversation-tracer");
+    let span = tracer
+        .span_builder("run_conversation")
+        .with_attributes(vec![
+            opentelemetry::KeyValue::new("conversation.session_id", session_id.clone()),
+            opentelemetry::KeyValue::new("conversation.type", "translation_request"),
+            opentelemetry::KeyValue::new("conversation.turns", 2i64),
+            opentelemetry::KeyValue::new("conversation.topic", "France capital"),
+        ])
+        .start(&tracer);
+
+    // Set this span as the active span in the context
+    let cx = opentelemetry::Context::current_with_span(span);
+    let _guard = cx.attach();
+
+    // Make the first request
+    let request = async_openai::types::CreateChatCompletionRequestArgs::default()
+        .messages(vec![
+            async_openai::types::ChatCompletionRequestMessage::User(
+                async_openai::types::ChatCompletionRequestUserMessage {
+                    content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
+                        "What is the capital of France?".to_string(),
+                    ),
+                    name: None,
+                },
+            ),
+        ])
+        .temperature(0.7)
+        .max_tokens(50_u32)
+        .build()?;
+
+    info!("Sending first request to OpenAI...");
+    let response = client.chat().create(request).await?;
+
+    let first_response = response.choices[0]
+        .message
+        .content
+        .as_ref()
+        .unwrap_or(&String::new())
+        .clone();
+
+    info!("First response: {}", first_response);
+
+    if let Some(usage) = response.usage {
+        info!(
+            "Token usage - Prompt: {}, Completion: {}, Total: {}",
+            usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
+        );
+    }
+
+    // Build conversation history for follow-up request
+    #[allow(deprecated)]
+    let messages = vec![
+        async_openai::types::ChatCompletionRequestMessage::User(
+            async_openai::types::ChatCompletionRequestUserMessage {
+                content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
+                    "What is the capital of France?".to_string(),
+                ),
+                name: None,
+            },
+        ),
+        async_openai::types::ChatCompletionRequestMessage::Assistant(
+            async_openai::types::ChatCompletionRequestAssistantMessage {
+                content: Some(
+                    async_openai::types::ChatCompletionRequestAssistantMessageContent::Text(
+                        first_response,
+                    ),
+                ),
+                name: None,
+                tool_calls: None,
+                audio: None,
+                refusal: None,
+                function_call: None,
+            },
+        ),
+        async_openai::types::ChatCompletionRequestMessage::User(
+            async_openai::types::ChatCompletionRequestUserMessage {
+                content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
+                    "Please repeat your response, but in French language.".to_string(),
+                ),
+                name: None,
+            },
+        ),
+    ];
+
+    // Make follow-up request
+    let follow_up_request = async_openai::types::CreateChatCompletionRequestArgs::default()
+        .messages(messages)
+        .temperature(0.7)
+        .max_tokens(50_u32)
+        .build()?;
+
+    info!("Sending follow-up request to OpenAI...");
+    let follow_up_response = client.chat().create(follow_up_request).await?;
+
+    info!(
+        "Follow-up response (in French): {}",
+        follow_up_response.choices[0]
+            .message
+            .content
+            .as_ref()
+            .unwrap_or(&String::new())
+    );
+
+    if let Some(usage) = follow_up_response.usage {
+        info!(
+            "Follow-up token usage - Prompt: {}, Completion: {}, Total: {}",
+            usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
+        );
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // Load environment variables
@@ -89,46 +226,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create client with our middleware
     let client = Client::build(http_client, config, Default::default());
 
-    // Optional: Set context attributes for better organization in Langfuse
+    // Set user context attributes for better organization in Langfuse
+    // Note: session_id is set dynamically in run_conversation()
     use reqwest_openai_tracing::langfuse_context;
-    langfuse_context::set_session_id("example-session-123");
     langfuse_context::set_user_id("example-user-456");
     langfuse_context::add_tags(vec!["example".to_string(), "langfuse".to_string()]);
 
-    // Make a request - it will be traced and sent to Langfuse
-    let request = async_openai::types::CreateChatCompletionRequestArgs::default()
-        .messages(vec![
-            async_openai::types::ChatCompletionRequestMessage::User(
-                async_openai::types::ChatCompletionRequestUserMessage {
-                    content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
-                        "What is the capital of France?".to_string(),
-                    ),
-                    name: None,
-                },
-            ),
-        ])
-        .temperature(0.7)
-        .max_tokens(50_u32)
-        .build()?;
-
-    info!("Sending request to OpenAI...");
-    let response = client.chat().create(request).await?;
-
-    info!(
-        "Response: {}",
-        response.choices[0]
-            .message
-            .content
-            .as_ref()
-            .unwrap_or(&String::new())
-    );
-
-    if let Some(usage) = response.usage {
-        info!(
-            "Token usage - Prompt: {}, Completion: {}, Total: {}",
-            usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
-        );
-    }
+    // Run the conversation with tracing
+    run_conversation(&client).await?;
 
     info!("Exporting traces to Langfuse...");
 
