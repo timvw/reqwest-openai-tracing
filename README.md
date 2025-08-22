@@ -21,10 +21,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-reqwest-openai-tracing = "0.1.0"
+# Git dependency required until async-openai publishes HttpClient trait to crates.io
+# Use a specific tag/release for stability
+reqwest-openai-tracing = { git = "https://github.com/timvw/reqwest-openai-tracing.git", tag = "v0.1.0" }
 async-openai = { git = "https://github.com/timvw/async-openai.git", rev = "baadc6a" }
 reqwest-middleware = "0.4"
 ```
+
+**Note:** This crate cannot be published to crates.io yet because it depends on `async-openai` via git (specifically a fork that includes the `HttpClient` trait). Once the `HttpClient` trait is merged upstream and published to crates.io, this crate will also be published there.
 
 ## Quick Start
 
@@ -60,27 +64,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Langfuse Integration
 
 This library provides helper functions to simplify [Langfuse's OpenTelemetry integration](https://langfuse.com/integrations/native/opentelemetry).
-
-### Setting Context Attributes
-
-You can add context to your traces for better organization in Langfuse:
-
-```rust
-use reqwest_openai_tracing::langfuse_context;
-
-// Set session and user IDs
-langfuse_context::set_session_id("session-123");
-langfuse_context::set_user_id("user-456");
-
-// Add tags for filtering
-langfuse_context::add_tags(vec!["production".to_string(), "v1.0".to_string()]);
-
-// Add custom metadata
-langfuse_context::GLOBAL_CONTEXT.set_metadata(serde_json::json!({
-    "experiment": "A/B test",
-    "version": "1.0.0"
-}));
-```
 
 ### Configuration
 
@@ -118,14 +101,26 @@ let tracer_provider = TracerProvider::builder()
     .build();
 ```
 
-### Helper Functions
+### Setting Context Attributes
 
-The library provides convenience functions for Langfuse configuration:
+You can add context to your traces for better organization in Langfuse:
 
-- `build_langfuse_auth_header(public_key, secret_key)` - Creates the authentication header
-- `build_langfuse_auth_header_from_env()` - Reads keys from `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`
-- `build_otlp_endpoint(base_url)` - Constructs the OTLP endpoint URL
-- `build_langfuse_otlp_endpoint_from_env()` - Reads from `LANGFUSE_HOST`
+```rust
+use reqwest_openai_tracing::langfuse_context;
+
+// Set session and user IDs
+langfuse_context::set_session_id("session-123");
+langfuse_context::set_user_id("user-456");
+
+// Add tags for filtering
+langfuse_context::add_tags(vec!["production".to_string(), "v1.0".to_string()]);
+
+// Add custom metadata
+langfuse_context::GLOBAL_CONTEXT.set_metadata(serde_json::json!({
+    "experiment": "A/B test",
+    "version": "1.0.0"
+}));
+```
 
 
 ## Examples

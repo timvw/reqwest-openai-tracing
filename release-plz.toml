@@ -17,5 +17,3 @@ changelog_path = "CHANGELOG.md"
 # Set to false until async-openai is published to crates.io
 # The git dependency prevents publishing
 publish = false
-# Use git tags instead of registry for version comparison
-registry = "none"
