@@ -76,9 +76,9 @@ async fn run_conversation(client: &Client<AzureConfig>) -> Result<(), Box<dyn Er
     // Set the session ID in Langfuse context
     use reqwest_openai_tracing::langfuse_context;
     langfuse_context::set_session_id(&session_id);
-    
+
     // Create an OpenTelemetry span using the macro-style approach
-    use opentelemetry::trace::{Tracer, TraceContextExt};
+    use opentelemetry::trace::{TraceContextExt, Tracer};
     let tracer = global::tracer("conversation-tracer");
     let span = tracer
         .span_builder("run_conversation")
