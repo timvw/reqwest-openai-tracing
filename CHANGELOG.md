@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/timvw/reqwest-openai-tracing/compare/v0.1.0...v0.1.1) - 2025-08-22
+
+### Fixed
+
+- configure release-plz to use release-pr command
+- configure release-plz to work without crates.io ([#7](https://github.com/timvw/reqwest-openai-tracing/pull/7))
+- add main LICENSE file for GitHub license detection
+
 ## [0.1.0](https://github.com/timvw/reqwest-openai-tracing/releases/tag/v0.1.0) - 2025-08-22
 
 ### Added
