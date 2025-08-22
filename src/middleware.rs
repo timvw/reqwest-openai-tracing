@@ -18,6 +18,12 @@ use std::time::Instant;
 #[allow(dead_code)]
 pub struct OpenAITracingMiddleware;
 
+impl Default for OpenAITracingMiddleware {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OpenAITracingMiddleware {
     #[allow(dead_code)]
     pub fn new() -> Self {
@@ -121,6 +127,7 @@ impl Middleware for OpenAITracingMiddleware {
 }
 
 impl OpenAITracingMiddleware {
+    #[allow(clippy::too_many_arguments)]
     async fn process_request_with_attributes(
         &self,
         req: Request,
@@ -394,7 +401,7 @@ impl OpenAITracingMiddleware {
                                 e
                             )));
                             span.set_attribute(KeyValue::new(ERROR_TYPE, e.to_string()));
-                            Err(reqwest_middleware::Error::Reqwest(e.into()))
+                            Err(reqwest_middleware::Error::Reqwest(e))
                         }
                     }
                 } else {

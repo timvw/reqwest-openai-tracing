@@ -48,6 +48,12 @@ pub struct TraceAttributesBuilder {
     attributes: Vec<KeyValue>,
 }
 
+impl Default for TraceAttributesBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[allow(dead_code)]
 impl TraceAttributesBuilder {
     pub fn new() -> Self {

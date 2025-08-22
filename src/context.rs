@@ -177,6 +177,12 @@ pub struct LangfuseContextBuilder {
     context: LangfuseContext,
 }
 
+impl Default for LangfuseContextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LangfuseContextBuilder {
     pub fn new() -> Self {
         Self {

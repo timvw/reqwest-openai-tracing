@@ -1,0 +1,20 @@
+[workspace]
+# Enable changelog generation
+changelog_update = true
+# Enable git tag creation
+git_tag_enable = true
+# Enable GitHub release creation
+git_release_enable = true
+# Customize the release name
+git_release_name = "v{{version}}"
+# Update dependencies during release
+dependencies_update = true
+# Commit message for version updates
+version_commit_message = "chore: release {{package_name}} v{{version}}"
+
+[[package]]
+name = "reqwest-openai-tracing"
+# Customize changelog if needed
+changelog_path = "CHANGELOG.md"
+# Set to true to publish to crates.io
+publish = true

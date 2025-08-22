@@ -11,7 +11,7 @@
 //! ## Quick Start
 //!
 //! ```rust,no_run
-//! use reqwest_openai_tracing::{OpenAITracingMiddleware, HttpClientWithMiddleware, context};
+//! use reqwest_openai_tracing::{OpenAITracingMiddleware, HttpClientWithMiddleware, langfuse_context};
 //! use async_openai::{config::AzureConfig, Client};
 //! use reqwest_middleware::ClientBuilder;
 //!
@@ -34,8 +34,8 @@
 //! let client = Client::build(http_client, config, Default::default());
 //!
 //! // Set context attributes (optional)
-//! context::set_session_id("session-123");
-//! context::set_user_id("user-456");
+//! langfuse_context::set_session_id("session-123");
+//! langfuse_context::set_user_id("user-456");
 //!
 //! // Make API calls - they will be automatically traced
 //! # Ok(())
