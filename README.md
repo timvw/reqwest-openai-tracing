@@ -8,9 +8,9 @@ OpenTelemetry tracing middleware for OpenAI API calls made with reqwest.
 
 ## Features
 
-- 🔍 **Automatic Tracing**: Automatically creates OpenTelemetry spans for OpenAI API calls
+- 🔍 **Automatic Tracing**: Automatically creates OpenTelemetry spans for OpenAI API calls following [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
 - 📊 **Token Usage Tracking**: Records prompt and completion token usage in span attributes
-- 🏷️ **Langfuse Integration**: Seamlessly integrates with Langfuse via OpenTelemetry
+- 🏷️ **Langfuse Integration**: Seamlessly integrates with [Langfuse via OpenTelemetry](https://langfuse.com/integrations/native/opentelemetry)
 - 🎯 **Context Attributes**: Set session IDs, user IDs, tags, and metadata for traces
 - 🚀 **async-openai Compatible**: Works with the async-openai library via HttpClient trait
 - 🔧 **Flexible**: Works with any OpenTelemetry backend (Jaeger, Zipkin, Langfuse, etc.)
@@ -57,7 +57,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Setting Context Attributes
+## Langfuse Integration
+
+This library provides helper functions to simplify [Langfuse's OpenTelemetry integration](https://langfuse.com/integrations/native/opentelemetry).
+
+### Setting Context Attributes
 
 You can add context to your traces for better organization in Langfuse:
 
@@ -78,9 +82,9 @@ langfuse_context::GLOBAL_CONTEXT.set_metadata(serde_json::json!({
 }));
 ```
 
-## Langfuse Integration
+### Configuration
 
-This library provides helper functions to simplify Langfuse integration:
+Setup OpenTelemetry with Langfuse:
 
 ```rust
 use reqwest_openai_tracing::{
@@ -123,23 +127,6 @@ The library provides convenience functions for Langfuse configuration:
 - `build_otlp_endpoint(base_url)` - Constructs the OTLP endpoint URL
 - `build_langfuse_otlp_endpoint_from_env()` - Reads from `LANGFUSE_HOST`
 
-## Environment Variables
-
-When using with Langfuse, set these environment variables:
-
-```bash
-# Required for Langfuse integration
-LANGFUSE_SECRET_KEY=sk-lf-...
-LANGFUSE_PUBLIC_KEY=pk-lf-...
-LANGFUSE_HOST=https://cloud.langfuse.com  # or your self-hosted instance
-
-# Optional: Azure OpenAI configuration
-AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com
-AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-4  # or your deployment name
-```
-
-The library's helper functions will automatically construct the OTLP endpoint and authentication headers from the Langfuse environment variables.
 
 ## Examples
 
@@ -169,11 +156,28 @@ The middleware intercepts HTTP requests to OpenAI endpoints and:
 
 1. Creates a root trace span if none exists (named "OpenAI-generation" by default)
 2. Creates child spans for each API operation (chat, embeddings, etc.)
-3. Extracts and records token usage, model information, and other metadata
+3. Extracts and records token usage, model information, and other metadata following [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
 4. Applies any context attributes (session_id, user_id, tags) to the spans
 5. Forwards the spans to your configured OpenTelemetry backend
 
 **Note:** The `service.name` attribute should be set at the TracerProvider level (as shown in the Langfuse integration example), not at the span level. This follows OpenTelemetry best practices.
+
+## OpenTelemetry GenAI Semantic Conventions
+
+This library follows the [OpenTelemetry semantic conventions for GenAI](https://opentelemetry.io/docs/specs/semconv/gen-ai/) systems:
+
+- **[Spans](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/)**: Records operation name, model, token usage, and system attributes
+- **[Events](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/)**: Captures message content and roles (when configured)
+- **[Metrics](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/)**: Tracks token usage and operation duration
+- **[OpenAI-specific conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/openai/)**: Implements OpenAI-specific attributes like `gen_ai.system = "openai"`
+
+Key attributes captured:
+- `gen_ai.operation.name`: Operation type (chat, embeddings, etc.)
+- `gen_ai.system`: Set to "openai" or "azure.ai.openai"
+- `gen_ai.request.model`: Model name requested
+- `gen_ai.usage.input_tokens`: Number of input tokens
+- `gen_ai.usage.output_tokens`: Number of output tokens
+- `gen_ai.response.model`: Actual model used for response
 
 ## Supported Operations
 
