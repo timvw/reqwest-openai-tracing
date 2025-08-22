@@ -3,7 +3,6 @@
 use async_openai::{config::AzureConfig, Client};
 use dotenv::dotenv;
 use opentelemetry::global;
-use opentelemetry::trace::{Tracer, TraceContextExt};
 use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::trace::TracerProvider;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -57,6 +56,10 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// Note: We create OpenTelemetry spans manually here instead of using the tracing
+// #[instrument] macro because of version compatibility issues between tracing-opentelemetry
+// and our OpenTelemetry dependencies. This approach gives us full control over span creation
+// while maintaining the proper parent-child relationship with the middleware-generated spans.
 async fn run_conversation(client: &Client<AzureConfig>) -> Result<(), Box<dyn Error>> {
     // Generate session ID from current timestamp (format: YYYYMMDDHHMMSS)
     let timestamp = SystemTime::now()
@@ -73,8 +76,9 @@ async fn run_conversation(client: &Client<AzureConfig>) -> Result<(), Box<dyn Er
     // Set the session ID in Langfuse context
     use reqwest_openai_tracing::langfuse_context;
     langfuse_context::set_session_id(&session_id);
-
-    // Create an OpenTelemetry span
+    
+    // Create an OpenTelemetry span using the macro-style approach
+    use opentelemetry::trace::{Tracer, TraceContextExt};
     let tracer = global::tracer("conversation-tracer");
     let span = tracer
         .span_builder("run_conversation")

@@ -49,7 +49,7 @@ opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "trace"] }
 opentelemetry-otlp = { version = "0.27", features = ["tokio", "http-proto", "reqwest-client"] }
 tracing = "0.1"
 tracing-opentelemetry = "0.27"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "registry"] }
 
 [[example]]
 name = "basic"
