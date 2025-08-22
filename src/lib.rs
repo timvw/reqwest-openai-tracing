@@ -1,7 +1,7 @@
 //! # reqwest-openai-tracing
 //!
 //! OpenTelemetry tracing middleware for OpenAI API calls made with reqwest.
-//! 
+//!
 //! This library provides automatic tracing for OpenAI API calls, with support for:
 //! - Automatic span creation for chat completions, embeddings, and other OpenAI operations
 //! - Token usage tracking
@@ -45,6 +45,7 @@
 mod attributes;
 mod context;
 mod http_client;
+mod langfuse;
 mod middleware;
 
 // Re-export main types
@@ -60,3 +61,9 @@ pub use middleware::OpenAITracingMiddleware;
 pub mod langfuse_context {
     pub use crate::context::*;
 }
+
+// Re-export langfuse utilities
+pub use langfuse::{
+    build_langfuse_auth_header, build_langfuse_auth_header_from_env,
+    build_langfuse_otlp_endpoint_from_env, build_otlp_endpoint,
+};

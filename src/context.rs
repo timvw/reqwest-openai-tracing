@@ -52,14 +52,21 @@ impl LangfuseContext {
             // Parse existing JSON array, add tag, and re-serialize
             if let Ok(mut tags_vec) = serde_json::from_str::<Vec<String>>(existing) {
                 tags_vec.push(tag);
-                let tags_json = serde_json::to_string(&tags_vec).unwrap_or_else(|_| "[]".to_string());
+                let tags_json =
+                    serde_json::to_string(&tags_vec).unwrap_or_else(|_| "[]".to_string());
                 attrs.insert(LangfuseAttributes::TRACE_TAGS.to_string(), tags_json);
             } else {
                 // Fallback if existing isn't valid JSON
-                attrs.insert(LangfuseAttributes::TRACE_TAGS.to_string(), format!("[\"{}\"]", tag));
+                attrs.insert(
+                    LangfuseAttributes::TRACE_TAGS.to_string(),
+                    format!("[\"{}\"]", tag),
+                );
             }
         } else {
-            attrs.insert(LangfuseAttributes::TRACE_TAGS.to_string(), format!("[\"{}\"]", tag));
+            attrs.insert(
+                LangfuseAttributes::TRACE_TAGS.to_string(),
+                format!("[\"{}\"]", tag),
+            );
         }
         drop(attrs);
         self
@@ -144,7 +151,6 @@ impl Default for LangfuseContext {
 lazy_static::lazy_static! {
     pub static ref GLOBAL_CONTEXT: LangfuseContext = LangfuseContext::new();
 }
-
 
 /// Helper function to set session ID on global context
 pub fn set_session_id(session_id: impl Into<String>) {

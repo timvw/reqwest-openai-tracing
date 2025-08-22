@@ -62,19 +62,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
 
     let response1 = client.chat().create(request1).await?;
-    info!("Response 1: {}", response1.choices[0].message.content.as_ref().unwrap_or(&String::new()));
+    info!(
+        "Response 1: {}",
+        response1.choices[0]
+            .message
+            .content
+            .as_ref()
+            .unwrap_or(&String::new())
+    );
 
     // Example 2: Using the context builder
     info!("Example 2: Setting context with builder pattern");
     langfuse_context::GLOBAL_CONTEXT.clear();
-    
+
     let context = langfuse_context::LangfuseContextBuilder::new()
         .session_id("builder-session")
         .user_id("builder-user")
-        .tags(vec!["built".to_string(), "with".to_string(), "builder".to_string()])
+        .tags(vec![
+            "built".to_string(),
+            "with".to_string(),
+            "builder".to_string(),
+        ])
         .trace_name("Custom Trace Name")
         .build();
-    
+
     // Apply the built context
     context.apply_to_current_span();
 
@@ -93,7 +104,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
 
     let response2 = client.chat().create(request2).await?;
-    info!("Response 2: {}", response2.choices[0].message.content.as_ref().unwrap_or(&String::new()));
+    info!(
+        "Response 2: {}",
+        response2.choices[0]
+            .message
+            .content
+            .as_ref()
+            .unwrap_or(&String::new())
+    );
 
     // Example 3: Using custom metadata
     info!("Example 3: Setting context with metadata");
@@ -125,9 +143,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
 
     let response3 = client.chat().create(request3).await?;
-    info!("Response 3: {}", response3.choices[0].message.content.as_ref().unwrap_or(&String::new()));
+    info!(
+        "Response 3: {}",
+        response3.choices[0]
+            .message
+            .content
+            .as_ref()
+            .unwrap_or(&String::new())
+    );
 
-    info!("All examples completed. Check your tracing backend for the different context attributes.");
+    info!(
+        "All examples completed. Check your tracing backend for the different context attributes."
+    );
 
     Ok(())
 }

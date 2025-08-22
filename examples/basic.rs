@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
 
     let response = client.chat().create(request).await?;
-    
+
     println!(
         "Response: {}",
         response.choices[0]

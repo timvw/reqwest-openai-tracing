@@ -3,40 +3,39 @@
 use async_openai::{config::AzureConfig, Client};
 use dotenv::dotenv;
 use opentelemetry::global;
-use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::trace::{self, TracerProvider};
+use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
+use opentelemetry_sdk::trace::TracerProvider;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
-use reqwest_openai_tracing::{HttpClientWithMiddleware, OpenAITracingMiddleware};
+use reqwest_openai_tracing::{
+    build_langfuse_auth_header_from_env, build_langfuse_otlp_endpoint_from_env,
+    HttpClientWithMiddleware, OpenAITracingMiddleware,
+};
+use std::collections::HashMap;
 use std::error::Error;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::info;
 
 fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
+    // Use the helper functions to build endpoint and headers from environment variables
+    let endpoint = build_langfuse_otlp_endpoint_from_env()?;
+    let auth_header = build_langfuse_auth_header_from_env()?;
+
+    // Create headers HashMap for OpenTelemetry
+    let mut headers = HashMap::new();
+    headers.insert("Authorization".to_string(), auth_header);
+
     // Setup OpenTelemetry with OTLP exporter for Langfuse
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_http()
+        .with_endpoint(endpoint.clone())
+        .with_headers(headers)
+        .build()?;
+
     let tracer_provider = TracerProvider::builder()
-        .with_batch_exporter(
-            opentelemetry_otlp::new_exporter()
-                .http()
-                .with_endpoint(std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")?)
-                .with_headers(
-                    std::env::var("OTEL_EXPORTER_OTLP_HEADERS")?
-                        .split(',')
-                        .filter_map(|h| {
-                            let parts: Vec<&str> = h.splitn(2, '=').collect();
-                            if parts.len() == 2 {
-                                Some((parts[0].to_string(), parts[1].to_string()))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect(),
-                )
-                .build()?,
-            opentelemetry_sdk::runtime::Tokio,
-        )
+        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
         .with_resource(opentelemetry_sdk::Resource::new(vec![
-            opentelemetry::KeyValue::new("service.name", service_name),
+            opentelemetry::KeyValue::new("service.name", service_name.to_string()),
         ]))
         .build();
 
@@ -50,7 +49,10 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
         )
         .init();
 
-    info!("OpenTelemetry initialized with Langfuse backend");
+    info!(
+        "OpenTelemetry initialized with Langfuse backend at: {}",
+        endpoint
+    );
     Ok(())
 }
 
@@ -60,6 +62,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
 
     // Setup tracing with Langfuse
+    // This expects the following environment variables:
+    // - LANGFUSE_HOST: The base URL of your Langfuse instance (e.g., https://cloud.langfuse.com)
+    // - LANGFUSE_PUBLIC_KEY: Your Langfuse public key
+    // - LANGFUSE_SECRET_KEY: Your Langfuse secret key
     setup_tracing("reqwest-openai-example")?;
 
     // Create reqwest client with tracing middleware
@@ -101,7 +107,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Sending request to OpenAI...");
     let response = client.chat().create(request).await?;
-    
+
     info!(
         "Response: {}",
         response.choices[0]
@@ -119,10 +125,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     info!("Exporting traces to Langfuse...");
-    
+
     // Give time for traces to flush
     sleep(Duration::from_secs(2)).await;
-    
+
     // Shutdown tracing
     global::shutdown_tracer_provider();
     sleep(Duration::from_secs(1)).await;
