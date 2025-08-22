@@ -1,0 +1,62 @@
+[package]
+name = "reqwest-openai-tracing"
+version = "0.1.0"
+edition = "2021"
+authors = ["Tim Van Wassenhove <tim@timvw.be>"]
+description = "OpenTelemetry tracing middleware for OpenAI API calls with reqwest"
+documentation = "https://docs.rs/reqwest-openai-tracing"
+repository = "https://github.com/timvw/reqwest-openai-tracing"
+license = "MIT OR Apache-2.0"
+keywords = ["openai", "tracing", "opentelemetry", "langfuse", "reqwest"]
+categories = ["web-programming::http-client", "development-tools::debugging"]
+readme = "README.md"
+
+[dependencies]
+# async-openai with HttpClient trait support
+async-openai = { git = "https://github.com/timvw/async-openai.git", rev = "baadc6a" }
+
+# HTTP middleware
+reqwest = { version = "0.12", features = ["json", "multipart", "stream"] }
+reqwest-middleware = "0.4"
+
+# OpenTelemetry
+opentelemetry = { version = "0.27", features = ["trace"] }
+opentelemetry-semantic-conventions = { version = "0.27", features = ["semconv_experimental"] }
+
+# Async runtime
+async-trait = "0.1"
+tokio = { version = "1.47", features = ["rt", "macros"] }
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["preserve_order"] }
+
+# Utilities
+lazy_static = "1.4"
+bytes = "1.5"
+http = "1.0"
+mime = "0.3"
+eventsource-stream = "0.2"
+
+[dev-dependencies]
+# For examples and tests
+dotenv = "0.15"
+tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "time"] }
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "trace"] }
+opentelemetry-otlp = { version = "0.27", features = ["tokio", "http-proto", "reqwest-client"] }
+tracing = "0.1"
+tracing-opentelemetry = "0.27"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
+
+[[example]]
+name = "with_langfuse"
+path = "examples/with_langfuse.rs"
+
+[[example]]
+name = "context"
+path = "examples/context.rs"
