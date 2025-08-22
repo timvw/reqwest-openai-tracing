@@ -14,5 +14,6 @@ dependencies_update = true
 name = "reqwest-openai-tracing"
 # Customize changelog if needed
 changelog_path = "CHANGELOG.md"
-# Set to true to publish to crates.io
-publish = true
+# Set to false until async-openai is published to crates.io
+# The git dependency prevents publishing
+publish = false
