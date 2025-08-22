@@ -13,7 +13,7 @@ use reqwest_openai_tracing::{
 };
 use std::collections::HashMap;
 use std::error::Error;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use tokio::time::sleep;
 use tracing::info;
 
@@ -57,14 +57,32 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn run_conversation(
-    client: &Client<AzureConfig>,
-) -> Result<(), Box<dyn Error>> {
+async fn run_conversation(client: &Client<AzureConfig>) -> Result<(), Box<dyn Error>> {
+    // Generate session ID from current timestamp (format: YYYYMMDDHHMMSS)
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)?
+        .as_secs();
+
+    // Convert Unix timestamp to formatted string
+    let datetime = chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp as i64, 0)
+        .ok_or("Failed to create datetime")?;
+    let session_id = datetime.format("%Y%m%d%H%M%S").to_string();
+
+    info!("Starting conversation with session_id: {}", session_id);
+
+    // Set the session ID in Langfuse context
+    use reqwest_openai_tracing::langfuse_context;
+    langfuse_context::set_session_id(&session_id);
+
     // Create a span for the entire conversation
     let tracer = global::tracer("conversation-tracer");
     let mut span = tracer.start("run_conversation");
 
     // Add attributes to the span
+    span.set_attribute(opentelemetry::KeyValue::new(
+        "conversation.session_id",
+        session_id.clone(),
+    ));
     span.set_attribute(opentelemetry::KeyValue::new(
         "conversation.type",
         "translation_request",
@@ -209,9 +227,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create client with our middleware
     let client = Client::build(http_client, config, Default::default());
 
-    // Optional: Set context attributes for better organization in Langfuse
+    // Set user context attributes for better organization in Langfuse
+    // Note: session_id is set dynamically in run_conversation()
     use reqwest_openai_tracing::langfuse_context;
-    langfuse_context::set_session_id("example-session-123");
     langfuse_context::set_user_id("example-user-456");
     langfuse_context::add_tags(vec!["example".to_string(), "langfuse".to_string()]);
 
