@@ -111,21 +111,82 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .max_tokens(50_u32)
         .build()?;
 
-    info!("Sending request to OpenAI...");
+    info!("Sending first request to OpenAI...");
     let response = client.chat().create(request).await?;
 
+    let first_response = response.choices[0]
+        .message
+        .content
+        .as_ref()
+        .unwrap_or(&String::new())
+        .clone();
+
+    info!("First response: {}", first_response);
+
+    if let Some(usage) = response.usage {
+        info!(
+            "Token usage - Prompt: {}, Completion: {}, Total: {}",
+            usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
+        );
+    }
+
+    // Build conversation history for follow-up request
+    #[allow(deprecated)]
+    let messages = vec![
+        async_openai::types::ChatCompletionRequestMessage::User(
+            async_openai::types::ChatCompletionRequestUserMessage {
+                content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
+                    "What is the capital of France?".to_string(),
+                ),
+                name: None,
+            },
+        ),
+        async_openai::types::ChatCompletionRequestMessage::Assistant(
+            async_openai::types::ChatCompletionRequestAssistantMessage {
+                content: Some(
+                    async_openai::types::ChatCompletionRequestAssistantMessageContent::Text(
+                        first_response,
+                    ),
+                ),
+                name: None,
+                tool_calls: None,
+                audio: None,
+                refusal: None,
+                function_call: None,
+            },
+        ),
+        async_openai::types::ChatCompletionRequestMessage::User(
+            async_openai::types::ChatCompletionRequestUserMessage {
+                content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(
+                    "Please repeat your response, but in French language.".to_string(),
+                ),
+                name: None,
+            },
+        ),
+    ];
+
+    // Make follow-up request
+    let follow_up_request = async_openai::types::CreateChatCompletionRequestArgs::default()
+        .messages(messages)
+        .temperature(0.7)
+        .max_tokens(50_u32)
+        .build()?;
+
+    info!("Sending follow-up request to OpenAI...");
+    let follow_up_response = client.chat().create(follow_up_request).await?;
+
     info!(
-        "Response: {}",
-        response.choices[0]
+        "Follow-up response (in French): {}",
+        follow_up_response.choices[0]
             .message
             .content
             .as_ref()
             .unwrap_or(&String::new())
     );
 
-    if let Some(usage) = response.usage {
+    if let Some(usage) = follow_up_response.usage {
         info!(
-            "Token usage - Prompt: {}, Completion: {}, Total: {}",
+            "Follow-up token usage - Prompt: {}, Completion: {}, Total: {}",
             usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
         );
     }
