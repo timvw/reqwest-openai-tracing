@@ -16,8 +16,13 @@ The `ruleset.json` file contains branch protection rules for this repository.
 - Requires pull requests for changes to main branch
 - Requires status checks to pass (Test Suite)
 - Requires branches to be up-to-date before merging
+- Enforces linear history (no merge commits)
 - Prevents force pushes and branch deletion
 - Requires conversation resolution before merging
+
+## Merge Settings
+
+See [MERGE_SETTINGS.md](./MERGE_SETTINGS.md) for configuring squash-only merging to maintain a clean, linear history.
 
 ### Note:
 

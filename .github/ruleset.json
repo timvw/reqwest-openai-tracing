@@ -36,6 +36,10 @@
       }
     },
     {
+      "type": "required_linear_history",
+      "parameters": {}
+    },
+    {
       "type": "non_fast_forward",
       "parameters": {}
     },
