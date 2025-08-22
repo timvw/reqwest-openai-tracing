@@ -3,6 +3,7 @@
 use async_openai::{config::AzureConfig, Client};
 use dotenv::dotenv;
 use opentelemetry::global;
+use opentelemetry::trace::{Span, TraceContextExt, Tracer};
 use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::trace::TracerProvider;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -56,46 +57,27 @@ fn setup_tracing(service_name: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    // Load environment variables
-    dotenv().ok();
+async fn run_conversation(
+    client: &Client<AzureConfig>,
+) -> Result<(), Box<dyn Error>> {
+    // Create a span for the entire conversation
+    let tracer = global::tracer("conversation-tracer");
+    let mut span = tracer.start("run_conversation");
 
-    // Setup tracing with Langfuse
-    // This expects the following environment variables:
-    // - LANGFUSE_HOST: The base URL of your Langfuse instance (e.g., https://cloud.langfuse.com)
-    // - LANGFUSE_PUBLIC_KEY: Your Langfuse public key
-    // - LANGFUSE_SECRET_KEY: Your Langfuse secret key
-    setup_tracing("reqwest-openai-example")?;
+    // Add attributes to the span
+    span.set_attribute(opentelemetry::KeyValue::new(
+        "conversation.type",
+        "translation_request",
+    ));
+    span.set_attribute(opentelemetry::KeyValue::new("conversation.turns", 2i64));
+    span.set_attribute(opentelemetry::KeyValue::new(
+        "conversation.topic",
+        "France capital",
+    ));
 
-    // Create reqwest client with tracing middleware
-    let reqwest_client = reqwest::Client::new();
-    let middleware_client: ClientWithMiddleware = ClientBuilder::new(reqwest_client)
-        .with(OpenAITracingMiddleware::new())
-        .build();
+    let _guard = opentelemetry::Context::current_with_span(span);
 
-    // Wrap it to implement HttpClient trait
-    let http_client = HttpClientWithMiddleware::new(middleware_client);
-
-    // Setup Azure OpenAI config
-    let config = AzureConfig::new()
-        .with_api_base(std::env::var("AZURE_OPENAI_ENDPOINT")?)
-        .with_api_key(std::env::var("AZURE_OPENAI_API_KEY")?)
-        .with_deployment_id(
-            std::env::var("AZURE_OPENAI_DEPLOYMENT").unwrap_or_else(|_| "gpt-4".to_string()),
-        )
-        .with_api_version("2024-02-01");
-
-    // Create client with our middleware
-    let client = Client::build(http_client, config, Default::default());
-
-    // Optional: Set context attributes for better organization in Langfuse
-    use reqwest_openai_tracing::langfuse_context;
-    langfuse_context::set_session_id("example-session-123");
-    langfuse_context::set_user_id("example-user-456");
-    langfuse_context::add_tags(vec!["example".to_string(), "langfuse".to_string()]);
-
-    // Make a request - it will be traced and sent to Langfuse
+    // Make the first request
     let request = async_openai::types::CreateChatCompletionRequestArgs::default()
         .messages(vec![
             async_openai::types::ChatCompletionRequestMessage::User(
@@ -190,6 +172,51 @@ async fn main() -> Result<(), Box<dyn Error>> {
             usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
         );
     }
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    // Load environment variables
+    dotenv().ok();
+
+    // Setup tracing with Langfuse
+    // This expects the following environment variables:
+    // - LANGFUSE_HOST: The base URL of your Langfuse instance (e.g., https://cloud.langfuse.com)
+    // - LANGFUSE_PUBLIC_KEY: Your Langfuse public key
+    // - LANGFUSE_SECRET_KEY: Your Langfuse secret key
+    setup_tracing("reqwest-openai-example")?;
+
+    // Create reqwest client with tracing middleware
+    let reqwest_client = reqwest::Client::new();
+    let middleware_client: ClientWithMiddleware = ClientBuilder::new(reqwest_client)
+        .with(OpenAITracingMiddleware::new())
+        .build();
+
+    // Wrap it to implement HttpClient trait
+    let http_client = HttpClientWithMiddleware::new(middleware_client);
+
+    // Setup Azure OpenAI config
+    let config = AzureConfig::new()
+        .with_api_base(std::env::var("AZURE_OPENAI_ENDPOINT")?)
+        .with_api_key(std::env::var("AZURE_OPENAI_API_KEY")?)
+        .with_deployment_id(
+            std::env::var("AZURE_OPENAI_DEPLOYMENT").unwrap_or_else(|_| "gpt-4".to_string()),
+        )
+        .with_api_version("2024-02-01");
+
+    // Create client with our middleware
+    let client = Client::build(http_client, config, Default::default());
+
+    // Optional: Set context attributes for better organization in Langfuse
+    use reqwest_openai_tracing::langfuse_context;
+    langfuse_context::set_session_id("example-session-123");
+    langfuse_context::set_user_id("example-user-456");
+    langfuse_context::add_tags(vec!["example".to_string(), "langfuse".to_string()]);
+
+    // Run the conversation with tracing
+    run_conversation(&client).await?;
 
     info!("Exporting traces to Langfuse...");
 
