@@ -9,8 +9,6 @@ git_release_enable = true
 git_release_name = "v{{version}}"
 # Update dependencies during release
 dependencies_update = true
-# Commit message for version updates
-version_commit_message = "chore: release {{package_name}} v{{version}}"
 
 [[package]]
 name = "reqwest-openai-tracing"
