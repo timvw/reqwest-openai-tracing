@@ -12,26 +12,36 @@ use reqwest_openai_tracing::{
 };
 use std::collections::HashMap;
 use std::error::Error;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use tokio::time::sleep;
 use tracing::info;
 
-fn setup_tracing(service_name: &str) -> Result<SdkTracerProvider, Box<dyn Error>> {
+fn setup_tracing(service_name: &str) -> Result<(SdkTracerProvider, String), Box<dyn Error>> {
     // Use the helper functions to build endpoint and headers from environment variables
     let endpoint = build_langfuse_otlp_endpoint_from_env()?;
     let auth_header = build_langfuse_auth_header_from_env()?;
 
     // Create headers HashMap for OpenTelemetry
     let mut headers = HashMap::new();
-    headers.insert("Authorization".to_string(), auth_header);
+    headers.insert("Authorization".to_string(), auth_header.clone());
 
     // Setup OpenTelemetry with OTLP exporter for Langfuse
     // Note: The endpoint needs /v1/traces appended for OTLP HTTP
     let otlp_endpoint = format!("{}/v1/traces", endpoint);
+    info!("Configuring OTLP exporter with endpoint: {}", otlp_endpoint);
+    info!(
+        "Using authorization header: {}",
+        if auth_header.len() > 20 {
+            format!("{}...", &auth_header[..20])
+        } else {
+            auth_header.clone()
+        }
+    );
+
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
         .with_http_client(reqwest::Client::new())
-        .with_endpoint(otlp_endpoint)
+        .with_endpoint(otlp_endpoint.clone())
         .with_headers(headers)
         .build()?;
 
@@ -61,7 +71,7 @@ fn setup_tracing(service_name: &str) -> Result<SdkTracerProvider, Box<dyn Error>
         "OpenTelemetry initialized with Langfuse backend at: {}",
         endpoint
     );
-    Ok(tracer_provider)
+    Ok((tracer_provider, otlp_endpoint))
 }
 
 // Note: We create OpenTelemetry spans manually here instead of using the tracing
@@ -84,7 +94,12 @@ async fn run_conversation(client: &Client<AzureConfig>) -> Result<(), Box<dyn Er
     let span = tracer
         .span_builder("run_conversation")
         .with_attributes(vec![
-            opentelemetry::KeyValue::new("conversation.session_id", session_id.clone()),
+            // Langfuse-specific attributes
+            opentelemetry::KeyValue::new("langfuse.session.id", session_id.clone()),
+            opentelemetry::KeyValue::new("langfuse.user.id", "example-user-456"),
+            opentelemetry::KeyValue::new("langfuse.trace.name", "Translation Conversation"),
+            opentelemetry::KeyValue::new("langfuse.trace.tags", "example,langfuse,conversation"),
+            // Additional conversation attributes
             opentelemetry::KeyValue::new("conversation.type", "translation_request"),
             opentelemetry::KeyValue::new("conversation.turns", 2i64),
             opentelemetry::KeyValue::new("conversation.topic", "France capital"),
@@ -204,7 +219,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // - LANGFUSE_HOST: The base URL of your Langfuse instance (e.g., https://cloud.langfuse.com)
     // - LANGFUSE_PUBLIC_KEY: Your Langfuse public key
     // - LANGFUSE_SECRET_KEY: Your Langfuse secret key
-    let tracer_provider = setup_tracing("reqwest-openai-example")?;
+    let (tracer_provider, otlp_endpoint) = setup_tracing("reqwest-openai-example")?;
 
     // Create reqwest client with tracing middleware
     let reqwest_client = reqwest::Client::new();
@@ -237,10 +252,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     run_conversation(&client).await?;
 
     info!("Exporting traces to Langfuse...");
+    info!("Endpoint configured: {}", otlp_endpoint);
 
     // Force flush all pending spans
     if let Err(e) = tracer_provider.force_flush() {
         eprintln!("Error flushing spans: {:?}", e);
+    } else {
+        info!("Successfully flushed spans to Langfuse");
     }
 
     // Give a bit more time for the export to complete
@@ -248,7 +266,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Shutdown the tracer provider
     drop(tracer_provider);
-    
+
     info!("Traces have been sent to Langfuse. Check your dashboard for details.");
 
     Ok(())
